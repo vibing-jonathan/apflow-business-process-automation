@@ -64,6 +64,8 @@ model Invoice {
   currency             String               @default("USD")
   subtotal             Decimal?
   taxAmount            Decimal?
+  discountAmount       Decimal?
+  adjustmentAmount     Decimal?
   totalAmount          Decimal?
   status               String               @default("UPLOADED")
   departmentId         String?

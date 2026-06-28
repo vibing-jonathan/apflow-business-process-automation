@@ -82,6 +82,8 @@ export async function reviewInvoiceAction(invoiceId: string, formData: FormData)
   const currency = formString(formData, "currency") || "USD";
   const subtotal = parseNumberInput(formData.get("subtotal"));
   const taxAmount = parseNumberInput(formData.get("taxAmount")) ?? 0;
+  const discountAmount = parseNumberInput(formData.get("discountAmount")) ?? 0;
+  const adjustmentAmount = parseNumberInput(formData.get("adjustmentAmount")) ?? 0;
   const totalAmount = parseNumberInput(formData.get("totalAmount"));
   const departmentId = optionalId(formString(formData, "departmentId"));
   const selectedApproverId = optionalId(formString(formData, "assignedApproverId"));
@@ -104,6 +106,8 @@ export async function reviewInvoiceAction(invoiceId: string, formData: FormData)
     totalAmount,
     subtotal,
     taxAmount,
+    discountAmount,
+    adjustmentAmount,
     lineTotal,
     extractionConfidence: existingInvoice.extractionConfidence,
     duplicateInvoiceNumber: duplicate?.invoiceNumber
@@ -141,6 +145,8 @@ export async function reviewInvoiceAction(invoiceId: string, formData: FormData)
       currency,
       subtotal,
       taxAmount,
+      discountAmount,
+      adjustmentAmount,
       totalAmount,
       status: nextStatus,
       departmentId,

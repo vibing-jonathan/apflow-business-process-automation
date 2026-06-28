@@ -9,10 +9,10 @@ APFlow is an invoice intake and approval automation MVP for small business finan
 - Role/persona switching for finance and approver demo flows.
 - Invoice upload route with local file storage and Gemini-backed AI extraction.
 - Deterministic mock extraction fallback for local demos without an API key.
-- Human review form with field corrections, line items, duplicate warnings, routing, and audit logging.
+- Human review form with field corrections, invoice-level discounts/adjustments, line items, duplicate warnings, routing, and audit logging.
 - Approval queue with approve, reject, and request-changes decisions.
 - Dashboard metrics for review load, pending approvals, approved export value, overdue invoices, bottlenecks, and recent activity.
-- CSV export route for approved invoices that records export batches and marks invoices exported.
+- CSV export route for approved invoices, including discounts and adjustments, that records export batches and marks invoices exported.
 
 ## Run Locally
 

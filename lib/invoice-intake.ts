@@ -3,7 +3,7 @@ import "server-only";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { detectDuplicateInvoice, findVendorByName } from "@/lib/automation";
+import { buildReviewWarnings, detectDuplicateInvoice, findVendorByName } from "@/lib/automation";
 import { InvoiceExtractionError, extractInvoiceDraft } from "@/lib/extraction";
 import { prisma } from "@/lib/prisma";
 import { InvoiceStatus } from "@/lib/status";
@@ -132,11 +132,26 @@ export async function createInvoiceFromFile(
     vendorNameRaw: draft.vendorName,
     invoiceNumber: draft.invoiceNumber
   });
+  const lineTotal = draft.lineItems.reduce((total, item) => total + item.lineTotal, 0);
+  const reviewWarnings = buildReviewWarnings({
+    vendorNameRaw: draft.vendorName,
+    invoiceNumber: draft.invoiceNumber,
+    issueDate: new Date(`${draft.issueDate}T00:00:00.000Z`),
+    dueDate: new Date(`${draft.dueDate}T00:00:00.000Z`),
+    totalAmount: draft.totalAmount,
+    subtotal: draft.subtotal,
+    taxAmount: draft.taxAmount,
+    discountAmount: draft.discountAmount,
+    adjustmentAmount: draft.adjustmentAmount,
+    lineTotal,
+    extractionConfidence: draft.confidence,
+    duplicateInvoiceNumber: duplicate?.invoiceNumber
+  });
 
-  const extractionWarnings = [
+  const extractionWarnings = Array.from(new Set([
     ...draft.warnings,
-    ...(duplicate ? [`Possible duplicate of ${duplicate.invoiceNumber}`] : [])
-  ];
+    ...reviewWarnings
+  ]));
 
   const invoice = await prisma.invoice.create({
     data: {
@@ -148,6 +163,8 @@ export async function createInvoiceFromFile(
       currency: draft.currency,
       subtotal: draft.subtotal,
       taxAmount: draft.taxAmount,
+      discountAmount: draft.discountAmount,
+      adjustmentAmount: draft.adjustmentAmount,
       totalAmount: draft.totalAmount,
       status: InvoiceStatus.NEEDS_REVIEW,
       departmentId: vendor?.defaultDepartmentId,

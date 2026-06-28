@@ -100,6 +100,16 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               </label>
 
               <label>
+                Discount
+                <input name="discountAmount" type="number" step="0.01" min="0" defaultValue={String(invoice.discountAmount ?? 0)} />
+              </label>
+
+              <label>
+                Adjustment
+                <input name="adjustmentAmount" type="number" step="0.01" defaultValue={String(invoice.adjustmentAmount ?? 0)} />
+              </label>
+
+              <label>
                 Total
                 <input name="totalAmount" type="number" step="0.01" defaultValue={String(invoice.totalAmount ?? "")} required />
               </label>
@@ -197,6 +207,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <div>
                 <dt>Total</dt>
                 <dd>{formatMoney(invoice.totalAmount, invoice.currency)}</dd>
+              </div>
+              <div>
+                <dt>Discount</dt>
+                <dd>{formatMoney(invoice.discountAmount, invoice.currency)}</dd>
+              </div>
+              <div>
+                <dt>Adjustment</dt>
+                <dd>{formatMoney(invoice.adjustmentAmount, invoice.currency)}</dd>
               </div>
             </div>
           )}

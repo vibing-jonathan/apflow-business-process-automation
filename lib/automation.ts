@@ -108,6 +108,8 @@ export function buildReviewWarnings(input: {
   totalAmount?: number | null;
   subtotal?: number | null;
   taxAmount?: number | null;
+  discountAmount?: number | null;
+  adjustmentAmount?: number | null;
   lineTotal?: number | null;
   extractionConfidence?: number | null;
   duplicateInvoiceNumber?: string | null;
@@ -138,12 +140,29 @@ export function buildReviewWarnings(input: {
     warnings.push("Total amount must be greater than zero.");
   }
 
+  if ((input.discountAmount ?? 0) < 0) {
+    warnings.push("Discount amount cannot be negative.");
+  }
+
+  if (input.subtotal && input.totalAmount) {
+    const expectedTotal =
+      input.subtotal +
+      (input.taxAmount ?? 0) -
+      (input.discountAmount ?? 0) +
+      (input.adjustmentAmount ?? 0);
+
+    if (Math.abs(expectedTotal - input.totalAmount) > 1) {
+      warnings.push("Subtotal, tax, discount, and adjustments do not reconcile to invoice total.");
+    }
+  }
+
   if (
     input.totalAmount &&
     input.lineTotal &&
-    Math.abs(input.lineTotal - input.totalAmount) > 1
+    Math.abs(input.lineTotal - input.totalAmount) > 1 &&
+    Math.abs(input.lineTotal - (input.subtotal ?? 0)) > 1
   ) {
-    warnings.push("Line item total does not match invoice total.");
+    warnings.push("Line item total does not match subtotal or invoice total.");
   }
 
   if ((input.extractionConfidence ?? 1) < 0.8) {
