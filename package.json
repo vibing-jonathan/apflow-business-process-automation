@@ -5,6 +5,7 @@
   "description": "APFlow invoice intake, review, approval, and export automation MVP.",
   "scripts": {
     "dev": "next dev",
+    "deploy:local": "bash scripts/deploy-local.sh",
     "build": "prisma generate && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",

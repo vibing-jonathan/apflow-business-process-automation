@@ -25,6 +25,27 @@ npm run dev
 
 The app defaults to SQLite at `prisma/dev.db`. Runtime uploads are stored under `uploads/`; both are ignored by Git.
 
+## Local Deploy
+
+Run a production-style local deployment:
+
+```bash
+npm run deploy:local
+```
+
+The script installs dependencies with `npm ci`, syncs the Prisma schema, seeds demo data only when the database has no users, builds the app, and starts `next start` on `http://127.0.0.1:3000`.
+
+Useful options:
+
+```bash
+npm run deploy:local -- --port 3100
+npm run deploy:local -- --mock-ai
+npm run deploy:local -- --no-start
+npm run deploy:local -- --reset-and-seed-demo
+```
+
+`--reset-and-seed-demo` is destructive for the local SQLite database.
+
 ## AI Extraction
 
 Set a Gemini API key in the OS environment before running the app:
