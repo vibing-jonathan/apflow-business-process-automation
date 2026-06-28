@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { detectDuplicateInvoice, findVendorByName } from "@/lib/automation";
-import { extractInvoiceDraft } from "@/lib/extraction";
+import { InvoiceExtractionError, extractInvoiceDraft } from "@/lib/extraction";
 import { prisma } from "@/lib/prisma";
 import { InvoiceStatus } from "@/lib/status";
 
@@ -33,6 +33,37 @@ function safeFileName(fileName: string): string {
   return `${Date.now()}-${baseName || "invoice"}${extension}`;
 }
 
+function inferMimeType(file: File, extension: string): string {
+  if (file.type) {
+    return file.type;
+  }
+
+  switch (extension) {
+    case ".pdf":
+      return "application/pdf";
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+function extractionErrorMessage(error: unknown): string {
+  if (error instanceof InvoiceExtractionError) {
+    const cause = error.cause instanceof Error ? ` ${error.cause.message}` : "";
+    return `${error.message}${cause}`.trim();
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown extraction failure.";
+}
+
 export async function createInvoiceFromFile(
   file: FormDataEntryValue | null,
   activeUserId: string
@@ -50,10 +81,51 @@ export async function createInvoiceFromFile(
 
   const storedFileName = safeFileName(file.name);
   const storedPath = path.join(uploadDirectory, storedFileName);
+  const mimeType = inferMimeType(file, extension);
   const bytes = Buffer.from(await file.arrayBuffer());
   await writeFile(storedPath, bytes);
 
-  const draft = await extractInvoiceDraft(file.name);
+  let draft;
+  try {
+    draft = await extractInvoiceDraft({
+      fileName: file.name,
+      mimeType,
+      data: bytes
+    });
+  } catch (error) {
+    const failureMessage = extractionErrorMessage(error);
+    const invoice = await prisma.invoice.create({
+      data: {
+        vendorNameRaw: "Extraction unavailable",
+        status: InvoiceStatus.EXTRACTION_FAILED,
+        uploadedById: activeUserId,
+        fileName: file.name,
+        filePath: storedPath,
+        extractionConfidence: 0,
+        extractionWarnings: JSON.stringify([failureMessage]),
+        auditLogs: {
+          create: [
+            {
+              actorId: activeUserId,
+              action: "invoice.uploaded",
+              toStatus: InvoiceStatus.UPLOADED,
+              metadata: `Stored file as ${storedFileName}.`
+            },
+            {
+              actorId: activeUserId,
+              action: "extraction.failed",
+              fromStatus: InvoiceStatus.UPLOADED,
+              toStatus: InvoiceStatus.EXTRACTION_FAILED,
+              metadata: failureMessage
+            }
+          ]
+        }
+      }
+    });
+
+    return { ok: true, invoiceId: invoice.id };
+  }
+
   const vendor = await findVendorByName(draft.vendorName);
   const duplicate = await detectDuplicateInvoice({
     vendorId: vendor?.id,

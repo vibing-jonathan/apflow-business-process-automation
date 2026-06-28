@@ -6,6 +6,7 @@ import { approvalDecisionAction, quickRouteInvoiceAction, reviewInvoiceAction } 
 import { StatusBadge } from "@/components/status-badge";
 import { dateInputValue, formatDate, formatMoney, parseWarnings, percentage } from "@/lib/format";
 import { getInvoiceDetail, getReferenceData } from "@/lib/data";
+import { InvoiceStatus } from "@/lib/status";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,11 +20,15 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   }
 
   const warnings = parseWarnings(invoice.extractionWarnings);
-  const canReview = ["NEEDS_REVIEW", "READY_FOR_APPROVAL", "CHANGES_REQUESTED"].includes(
-    invoice.status
-  );
-  const canApprove = invoice.status === "PENDING_APPROVAL";
-  const canQuickRoute = invoice.status === "READY_FOR_APPROVAL";
+  const reviewableStatuses: InvoiceStatus[] = [
+    InvoiceStatus.EXTRACTION_FAILED,
+    InvoiceStatus.NEEDS_REVIEW,
+    InvoiceStatus.READY_FOR_APPROVAL,
+    InvoiceStatus.CHANGES_REQUESTED
+  ];
+  const canReview = reviewableStatuses.includes(invoice.status as InvoiceStatus);
+  const canApprove = invoice.status === InvoiceStatus.PENDING_APPROVAL;
+  const canQuickRoute = invoice.status === InvoiceStatus.READY_FOR_APPROVAL;
 
   return (
     <>

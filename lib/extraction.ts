@@ -1,11 +1,14 @@
+import "server-only";
+
+import { GoogleGenAI, createPartFromBase64 } from "@google/genai";
 import { z } from "zod";
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
-  quantity: z.number().positive(),
-  unitPrice: z.number().nonnegative(),
-  taxAmount: z.number().nonnegative(),
-  lineTotal: z.number().positive()
+  quantity: z.coerce.number().positive(),
+  unitPrice: z.coerce.number().nonnegative(),
+  taxAmount: z.coerce.number().nonnegative(),
+  lineTotal: z.coerce.number().positive()
 });
 
 export const extractedInvoiceSchema = z.object({
@@ -15,19 +18,196 @@ export const extractedInvoiceSchema = z.object({
   issueDate: z.string().date(),
   dueDate: z.string().date(),
   currency: z.string().min(3).max(3),
-  subtotal: z.number().positive(),
-  taxAmount: z.number().nonnegative(),
-  totalAmount: z.number().positive(),
+  subtotal: z.coerce.number().positive(),
+  taxAmount: z.coerce.number().nonnegative(),
+  totalAmount: z.coerce.number().positive(),
   paymentTerms: z.string().optional(),
   purchaseOrderNumber: z.string().optional(),
-  confidence: z.number().min(0).max(1),
+  confidence: z.coerce.number().min(0).max(1),
   warnings: z.array(z.string()),
   lineItems: z.array(lineItemSchema).min(1)
 });
 
 export type ExtractedInvoiceDraft = z.infer<typeof extractedInvoiceSchema>;
 
-export async function extractInvoiceDraft(fileName: string): Promise<ExtractedInvoiceDraft> {
+export class InvoiceExtractionError extends Error {
+  constructor(
+    message: string,
+    readonly cause?: unknown
+  ) {
+    super(message);
+    this.name = "InvoiceExtractionError";
+  }
+}
+
+export type InvoiceExtractionInput = {
+  fileName: string;
+  mimeType: string;
+  data: Buffer;
+};
+
+const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+const invoiceJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "vendorName",
+    "vendorTaxId",
+    "invoiceNumber",
+    "issueDate",
+    "dueDate",
+    "currency",
+    "subtotal",
+    "taxAmount",
+    "totalAmount",
+    "paymentTerms",
+    "purchaseOrderNumber",
+    "confidence",
+    "warnings",
+    "lineItems"
+  ],
+  properties: {
+    vendorName: { type: "string" },
+    vendorTaxId: { type: "string" },
+    invoiceNumber: { type: "string" },
+    issueDate: { type: "string", format: "date" },
+    dueDate: { type: "string", format: "date" },
+    currency: { type: "string" },
+    subtotal: { type: "number", minimum: 0 },
+    taxAmount: { type: "number", minimum: 0 },
+    totalAmount: { type: "number", minimum: 0 },
+    paymentTerms: { type: "string" },
+    purchaseOrderNumber: { type: "string" },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    warnings: {
+      type: "array",
+      items: { type: "string" }
+    },
+    lineItems: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["description", "quantity", "unitPrice", "taxAmount", "lineTotal"],
+        properties: {
+          description: { type: "string" },
+          quantity: { type: "number", minimum: 0 },
+          unitPrice: { type: "number", minimum: 0 },
+          taxAmount: { type: "number", minimum: 0 },
+          lineTotal: { type: "number", minimum: 0 }
+        }
+      }
+    }
+  },
+  propertyOrdering: [
+    "vendorName",
+    "vendorTaxId",
+    "invoiceNumber",
+    "issueDate",
+    "dueDate",
+    "currency",
+    "subtotal",
+    "taxAmount",
+    "totalAmount",
+    "paymentTerms",
+    "purchaseOrderNumber",
+    "confidence",
+    "warnings",
+    "lineItems"
+  ]
+} as const;
+
+function getGeminiApiKey(): string | undefined {
+  return [
+    process.env.GEMINI_API_KEY,
+    process.env.GOOGLE_API_KEY,
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  ].find((value): value is string => Boolean(value?.trim()))?.trim();
+}
+
+function normalizeOptionalStrings(draft: ExtractedInvoiceDraft): ExtractedInvoiceDraft {
+  return {
+    ...draft,
+    vendorTaxId: draft.vendorTaxId?.trim() || undefined,
+    paymentTerms: draft.paymentTerms?.trim() || undefined,
+    purchaseOrderNumber: draft.purchaseOrderNumber?.trim() || undefined,
+    currency: draft.currency.toUpperCase()
+  };
+}
+
+function parseGeminiJson(text: string): unknown {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("```")) {
+    return JSON.parse(trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, ""));
+  }
+
+  return JSON.parse(trimmed);
+}
+
+async function extractWithGemini(input: InvoiceExtractionInput): Promise<ExtractedInvoiceDraft> {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new InvoiceExtractionError("Gemini API key is not set in the OS environment.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: geminiModel,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: [
+              "Extract structured invoice data from the attached invoice.",
+              "Return only JSON matching the response schema.",
+              "Use ISO 8601 YYYY-MM-DD dates.",
+              "Use a three-letter ISO currency code; use USD only if the currency is not visible.",
+              "Use 0 for missing numeric tax amounts.",
+              "Use an empty string for unknown optional text fields.",
+              "If invoice number or vendor name is unclear, use UNKNOWN and add a warning.",
+              "If line items are not visible, create one line item named Invoice total with quantity 1.",
+              `Original filename: ${input.fileName}`
+            ].join(" ")
+          },
+          createPartFromBase64(input.data.toString("base64"), input.mimeType)
+        ]
+      }
+    ],
+    config: {
+      temperature: 0,
+      responseMimeType: "application/json",
+      responseJsonSchema: invoiceJsonSchema
+    }
+  });
+
+  if (!response.text) {
+    throw new InvoiceExtractionError("Gemini returned an empty extraction response.");
+  }
+
+  const parsed = extractedInvoiceSchema.parse(parseGeminiJson(response.text));
+  return normalizeOptionalStrings(parsed);
+}
+
+export async function extractInvoiceDraft(
+  input: InvoiceExtractionInput
+): Promise<ExtractedInvoiceDraft> {
+  const provider = process.env.APFLOW_EXTRACTION_PROVIDER?.toLowerCase();
+
+  if (provider === "mock" || !getGeminiApiKey()) {
+    return extractMockInvoiceDraft(input.fileName);
+  }
+
+  try {
+    return await extractWithGemini(input);
+  } catch (error) {
+    throw new InvoiceExtractionError("Gemini invoice extraction failed.", error);
+  }
+}
+
+export function extractMockInvoiceDraft(fileName: string): ExtractedInvoiceDraft {
   const normalized = fileName.toLowerCase();
 
   if (normalized.includes("cloud") || normalized.includes("northstar")) {
