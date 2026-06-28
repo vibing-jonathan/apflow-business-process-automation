@@ -7,7 +7,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 
 export default async function ApprovalsPage() {
   const activeUser = await getActiveUser();
-  const queue = await getApprovalQueue(activeUser.role === "FINANCE" ? undefined : activeUser.id);
+  const queue = await getApprovalQueue(activeUser.id);
 
   return (
     <>

@@ -58,6 +58,7 @@ export const statusClassNames: Record<InvoiceStatus, string> = {
 
 export const activeWorkflowStatuses = new Set<InvoiceStatus>([
   InvoiceStatus.UPLOADED,
+  InvoiceStatus.EXTRACTION_FAILED,
   InvoiceStatus.NEEDS_REVIEW,
   InvoiceStatus.READY_FOR_APPROVAL,
   InvoiceStatus.PENDING_APPROVAL,

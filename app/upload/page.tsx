@@ -5,12 +5,22 @@ const errorLabels: Record<string, string> = {
   "unsupported-type": "Only PDF, PNG, JPG, and JPEG invoices are accepted."
 };
 
-export default function UploadPage({
+type UploadPageSearchParams = {
+  error?: string | string[];
+};
+
+function firstParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function UploadPage({
   searchParams
 }: {
-  searchParams?: { error?: string };
+  searchParams?: Promise<UploadPageSearchParams>;
 }) {
-  const error = searchParams?.error ? errorLabels[searchParams.error] : null;
+  const params = await searchParams;
+  const errorKey = firstParam(params?.error);
+  const error = errorKey ? errorLabels[errorKey] : null;
 
   return (
     <>

@@ -10,11 +10,18 @@ const contentTypes: Record<string, string> = {
   ".jpeg": "image/jpeg"
 };
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+function contentDisposition(disposition: "inline" | "attachment", fileName: string) {
+  const safeFileName = fileName.replace(/["\r\n]/g, "") || "invoice";
+  return `${disposition}; filename="${safeFileName}"`;
+}
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const invoice = await prisma.invoice.findUnique({
     where: { id }
   });
+  const { searchParams } = new URL(request.url);
+  const disposition = searchParams.get("download") === "1" ? "attachment" : "inline";
 
   if (!invoice || invoice.filePath.startsWith("seed/")) {
     return Response.json({ error: "File is not available." }, { status: 404 });
@@ -34,7 +41,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new Response(file, {
       headers: {
         "Content-Type": contentTypes[extension] ?? "application/octet-stream",
-        "Content-Disposition": `inline; filename="${invoice.fileName.replace(/"/g, "")}"`
+        "Content-Disposition": contentDisposition(disposition, invoice.fileName)
       }
     });
   } catch {

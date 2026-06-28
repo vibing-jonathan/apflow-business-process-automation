@@ -127,10 +127,14 @@ export async function getInvoiceList(input: {
   approverId?: string;
 }) {
   const search = input.search?.trim();
+  const status =
+    input.status && invoiceStatusOrder.includes(input.status as InvoiceStatus)
+      ? input.status
+      : undefined;
 
   return prisma.invoice.findMany({
     where: {
-      status: input.status && input.status !== "ALL" ? input.status : undefined,
+      status,
       assignedApproverId: input.approverId || undefined,
       OR: search
         ? [

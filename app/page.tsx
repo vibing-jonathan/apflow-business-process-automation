@@ -1,8 +1,6 @@
 import {
   AlertTriangle,
-  CheckCircle2,
   Clock3,
-  FileWarning,
   PackageCheck,
   WalletCards
 } from "lucide-react";
@@ -13,15 +11,24 @@ import { MetricCard } from "@/components/metric-card";
 import { StatusBadge } from "@/components/status-badge";
 import { formatDate, formatMoney } from "@/lib/format";
 import { getDashboardData } from "@/lib/data";
-import { statusLabels } from "@/lib/status";
+import { activeWorkflowStatuses, InvoiceStatus, statusLabels } from "@/lib/status";
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
-  const needsReview =
-    data.counts.find((item) => item.status === "NEEDS_REVIEW")?.count ?? 0;
-  const pendingApproval =
-    data.counts.find((item) => item.status === "PENDING_APPROVAL")?.count ?? 0;
-  const approved = data.counts.find((item) => item.status === "APPROVED")?.count ?? 0;
+  const countForStatus = (status: InvoiceStatus) =>
+    data.counts.find((item) => item.status === status)?.count ?? 0;
+  const extractionFailed = countForStatus(InvoiceStatus.EXTRACTION_FAILED);
+  const needsReview = countForStatus(InvoiceStatus.NEEDS_REVIEW);
+  const pendingApproval = countForStatus(InvoiceStatus.PENDING_APPROVAL);
+  const changesRequested = countForStatus(InvoiceStatus.CHANGES_REQUESTED);
+  const approved = countForStatus(InvoiceStatus.APPROVED);
+  const exported = countForStatus(InvoiceStatus.EXPORTED);
+  const rejected = countForStatus(InvoiceStatus.REJECTED);
+  const needsAttention = extractionFailed + needsReview + changesRequested;
+  const activeWorkflowCount = data.invoices.filter((invoice) =>
+    activeWorkflowStatuses.has(invoice.status as InvoiceStatus)
+  ).length;
+  const finalizedCount = approved + exported + rejected;
 
   return (
     <>
@@ -38,10 +45,16 @@ export default async function DashboardPage() {
 
       <section className="metric-grid" aria-label="Workflow metrics">
         <MetricCard
-          label="Needs Review"
-          value={String(needsReview)}
-          detail="AI drafts waiting on finance"
-          icon={<FileWarning size={20} />}
+          label="Total Invoices"
+          value={String(data.invoices.length)}
+          detail={`${activeWorkflowCount} active workflow`}
+          icon={<WalletCards size={20} />}
+        />
+        <MetricCard
+          label="Needs Attention"
+          value={String(needsAttention)}
+          detail={`${needsReview} review, ${changesRequested} changes, ${extractionFailed} failed`}
+          icon={<AlertTriangle size={20} />}
         />
         <MetricCard
           label="Pending Approval"
@@ -50,16 +63,10 @@ export default async function DashboardPage() {
           icon={<Clock3 size={20} />}
         />
         <MetricCard
-          label="Approved"
-          value={String(approved)}
-          detail={formatMoney(data.approvedReadyTotal)}
-          icon={<CheckCircle2 size={20} />}
-        />
-        <MetricCard
-          label="Overdue"
-          value={String(data.overdueInvoices.length)}
-          detail="Active invoices past due date"
-          icon={<AlertTriangle size={20} />}
+          label="Finalized"
+          value={String(finalizedCount)}
+          detail={`${approved} approved, ${exported} exported, ${rejected} rejected`}
+          icon={<PackageCheck size={20} />}
         />
       </section>
 

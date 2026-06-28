@@ -183,6 +183,17 @@ export async function approvalDecisionAction(invoiceId: string, formData: FormDa
     where: { id: invoiceId }
   });
 
+  if (
+    invoice.status !== InvoiceStatus.PENDING_APPROVAL ||
+    invoice.assignedApproverId !== activeUser.id
+  ) {
+    redirect(`/invoices/${invoiceId}`);
+  }
+
+  if (!["approved", "rejected", "changes_requested"].includes(decision)) {
+    redirect(`/invoices/${invoiceId}`);
+  }
+
   const nextStatus =
     decision === "approved"
       ? InvoiceStatus.APPROVED

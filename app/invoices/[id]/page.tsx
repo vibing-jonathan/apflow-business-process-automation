@@ -1,18 +1,19 @@
-import { FileText, RotateCw } from "lucide-react";
+import { Download, FileText, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { approvalDecisionAction, quickRouteInvoiceAction, reviewInvoiceAction } from "@/app/actions";
 import { StatusBadge } from "@/components/status-badge";
 import { dateInputValue, formatDate, formatMoney, parseWarnings, percentage } from "@/lib/format";
-import { getInvoiceDetail, getReferenceData } from "@/lib/data";
+import { getActiveUser, getInvoiceDetail, getReferenceData } from "@/lib/data";
 import { InvoiceStatus } from "@/lib/status";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [invoice, reference] = await Promise.all([
+  const [invoice, reference, activeUser] = await Promise.all([
     getInvoiceDetail(id),
-    getReferenceData()
+    getReferenceData(),
+    getActiveUser()
   ]);
 
   if (!invoice) {
@@ -27,8 +28,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     InvoiceStatus.CHANGES_REQUESTED
   ];
   const canReview = reviewableStatuses.includes(invoice.status as InvoiceStatus);
-  const canApprove = invoice.status === InvoiceStatus.PENDING_APPROVAL;
+  const canApprove =
+    invoice.status === InvoiceStatus.PENDING_APPROVAL &&
+    invoice.assignedApproverId === activeUser.id;
   const canQuickRoute = invoice.status === InvoiceStatus.READY_FOR_APPROVAL;
+  const isFileAvailable = !invoice.filePath.startsWith("seed/");
 
   return (
     <>
@@ -236,11 +240,17 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               <h2>{invoice.fileName}</h2>
               <p className="muted">Confidence {percentage(invoice.extractionConfidence)}</p>
             </div>
-            {invoice.filePath.startsWith("seed/") ? null : (
-              <Link className="button secondary" href={`/api/invoices/${invoice.id}/file`} target="_blank">
-                Open file
-              </Link>
-            )}
+            {isFileAvailable ? (
+              <div className="action-row">
+                <Link className="button secondary" href={`/api/invoices/${invoice.id}/file`} target="_blank">
+                  Open file
+                </Link>
+                <Link className="button secondary" href={`/api/invoices/${invoice.id}/file?download=1`}>
+                  <Download size={16} />
+                  Download original
+                </Link>
+              </div>
+            ) : null}
           </section>
 
           <section className="panel">
