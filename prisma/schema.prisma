@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                    String             @id @default(cuid())
+  name                  String
+  email                 String             @unique
+  role                  String             @default("FINANCE")
+  departmentId          String?
+  department            Department?        @relation("DepartmentMembers", fields: [departmentId], references: [id])
+  defaultForDepartments Department[]       @relation("DepartmentDefaultApprover")
+  defaultForVendors     Vendor[]           @relation("VendorDefaultApprover")
+  uploadedInvoices      Invoice[]          @relation("UploadedInvoices")
+  reviewedInvoices      Invoice[]          @relation("ReviewedInvoices")
+  approvedInvoices      Invoice[]          @relation("ApprovedInvoices")
+  assignedInvoices      Invoice[]          @relation("AssignedInvoices")
+  approvalDecisions     ApprovalDecision[]
+  auditLogs             AuditLog[]
+  exportBatches         ExportBatch[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+}
+
+model Department {
+  id                String    @id @default(cuid())
+  name              String    @unique
+  defaultApproverId String?
+  defaultApprover   User?     @relation("DepartmentDefaultApprover", fields: [defaultApproverId], references: [id])
+  users             User[]    @relation("DepartmentMembers")
+  vendors           Vendor[]  @relation("VendorDefaultDepartment")
+  invoices          Invoice[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Vendor {
+  id                  String      @id @default(cuid())
+  name                String      @unique
+  taxId               String?
+  defaultDepartmentId String?
+  defaultDepartment   Department? @relation("VendorDefaultDepartment", fields: [defaultDepartmentId], references: [id])
+  defaultApproverId   String?
+  defaultApprover     User?       @relation("VendorDefaultApprover", fields: [defaultApproverId], references: [id])
+  paymentTerms        String?
+  invoices            Invoice[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+model Invoice {
+  id                   String               @id @default(cuid())
+  vendorId             String?
+  vendor               Vendor?              @relation(fields: [vendorId], references: [id])
+  vendorNameRaw        String
+  invoiceNumber        String?
+  issueDate            DateTime?
+  dueDate              DateTime?
+  currency             String               @default("USD")
+  subtotal             Decimal?
+  taxAmount            Decimal?
+  totalAmount          Decimal?
+  status               String               @default("UPLOADED")
+  departmentId         String?
+  department           Department?          @relation(fields: [departmentId], references: [id])
+  assignedApproverId   String?
+  assignedApprover     User?                @relation("AssignedInvoices", fields: [assignedApproverId], references: [id])
+  uploadedById         String
+  uploadedBy           User                 @relation("UploadedInvoices", fields: [uploadedById], references: [id])
+  reviewedById         String?
+  reviewedBy           User?                @relation("ReviewedInvoices", fields: [reviewedById], references: [id])
+  approvedById         String?
+  approvedBy           User?                @relation("ApprovedInvoices", fields: [approvedById], references: [id])
+  fileName             String
+  filePath             String
+  extractionConfidence Float?
+  extractionWarnings   String?
+  duplicateOfInvoiceId String?
+  duplicateOfInvoice   Invoice?             @relation("InvoiceDuplicate", fields: [duplicateOfInvoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  duplicates           Invoice[]            @relation("InvoiceDuplicate")
+  exportedAt           DateTime?
+  lineItems            InvoiceLineItem[]
+  approvalDecisions    ApprovalDecision[]
+  auditLogs            AuditLog[]
+  exportLinks          ExportBatchInvoice[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([status])
+  @@index([vendorId, invoiceNumber])
+  @@index([assignedApproverId])
+  @@index([dueDate])
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal
+  unitPrice   Decimal
+  taxAmount   Decimal?
+  lineTotal   Decimal
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ApprovalDecision {
+  id         String               @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  approverId String
+  approver   User                 @relation(fields: [approverId], references: [id])
+  decision   String
+  comment    String?
+  createdAt  DateTime             @default(now())
+}
+
+model AuditLog {
+  id         String         @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?          @relation(fields: [actorId], references: [id])
+  action     String
+  fromStatus String?
+  toStatus   String?
+  metadata   String?
+  createdAt  DateTime       @default(now())
+}
+
+model ExportBatch {
+  id           String               @id @default(cuid())
+  createdById  String
+  createdBy    User                 @relation(fields: [createdById], references: [id])
+  fileName     String
+  invoiceCount Int
+  totalAmount  Decimal
+  invoices     ExportBatchInvoice[]
+  createdAt    DateTime             @default(now())
+}
+
+model ExportBatchInvoice {
+  id            String      @id @default(cuid())
+  exportBatchId String
+  exportBatch   ExportBatch @relation(fields: [exportBatchId], references: [id], onDelete: Cascade)
+  invoiceId     String
+  invoice       Invoice     @relation(fields: [invoiceId], references: [id])
+
+  @@unique([exportBatchId, invoiceId])
+}
