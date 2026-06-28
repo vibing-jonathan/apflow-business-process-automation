@@ -80,6 +80,16 @@ button.secondary:hover,
   background: var(--surface-strong);
 }
 
+button:disabled,
+.button.disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.button.disabled:hover {
+  background: var(--surface);
+}
+
 button.danger {
   background: var(--danger);
 }
@@ -332,6 +342,10 @@ h3 {
   margin-top: 16px;
 }
 
+.action-row.compact {
+  margin-top: 10px;
+}
+
 .table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -339,7 +353,7 @@ h3 {
 
 .data-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 820px;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
@@ -380,6 +394,16 @@ h3 {
 
 .icon-link:hover {
   background: var(--surface-strong);
+}
+
+.icon-link.disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.icon-link.disabled:hover {
+  background: transparent;
 }
 
 .status {

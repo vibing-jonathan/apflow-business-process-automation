@@ -1,4 +1,5 @@
-import { csvEscape, decimalToNumber } from "@/lib/format";
+import { buildApprovedInvoicesCsv, csvDownloadResponse } from "@/lib/export-csv";
+import { decimalToNumber } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { InvoiceStatus } from "@/lib/status";
 
@@ -88,45 +89,5 @@ export async function POST(request: Request) {
     );
   });
 
-  const rows = [
-    [
-      "vendor",
-      "invoice_number",
-      "issue_date",
-      "due_date",
-      "currency",
-      "subtotal",
-      "tax_amount",
-      "discount_amount",
-      "adjustment_amount",
-      "total_amount",
-      "department",
-      "approver",
-      "status"
-    ],
-    ...invoices.map((invoice) => [
-      invoice.vendorNameRaw,
-      invoice.invoiceNumber ?? "",
-      invoice.issueDate?.toISOString().slice(0, 10) ?? "",
-      invoice.dueDate?.toISOString().slice(0, 10) ?? "",
-      invoice.currency,
-      decimalToNumber(invoice.subtotal).toFixed(2),
-      decimalToNumber(invoice.taxAmount).toFixed(2),
-      decimalToNumber(invoice.discountAmount).toFixed(2),
-      decimalToNumber(invoice.adjustmentAmount).toFixed(2),
-      decimalToNumber(invoice.totalAmount).toFixed(2),
-      invoice.department?.name ?? "",
-      invoice.approvedBy?.name ?? invoice.assignedApprover?.name ?? "",
-      InvoiceStatus.EXPORTED
-    ])
-  ];
-
-  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
-
-  return new Response(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${fileName}"`
-    }
-  });
+  return csvDownloadResponse(buildApprovedInvoicesCsv(invoices), fileName);
 }

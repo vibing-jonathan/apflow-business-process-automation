@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Download } from "lucide-react";
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
@@ -13,6 +13,8 @@ type InvoiceRow = {
   currency: string;
   totalAmount: Prisma.Decimal | null;
   status: string;
+  fileName: string;
+  filePath: string;
   assignedApprover?: {
     name: string;
   } | null;
@@ -46,35 +48,56 @@ export function InvoiceTable({
             <th>Amount</th>
             <th>Due</th>
             <th>Approver</th>
+            <th>Original</th>
             <th aria-label="Open invoice" />
           </tr>
         </thead>
         <tbody>
-          {invoices.map((invoice) => (
-            <tr key={invoice.id}>
-              <td>
-                <strong>{invoice.vendorNameRaw}</strong>
-                <span>{invoice.department?.name ?? "No department"}</span>
-              </td>
-              <td>
-                <strong>{invoice.invoiceNumber ?? "No number"}</strong>
-                {invoice.duplicateOfInvoice ? (
-                  <span>Duplicate of {invoice.duplicateOfInvoice.invoiceNumber}</span>
-                ) : null}
-              </td>
-              <td>
-                <StatusBadge status={invoice.status} />
-              </td>
-              <td>{formatMoney(invoice.totalAmount, invoice.currency)}</td>
-              <td>{formatDate(invoice.dueDate)}</td>
-              <td>{invoice.assignedApprover?.name ?? "Unassigned"}</td>
-              <td>
-                <Link className="icon-link" href={`/invoices/${invoice.id}`} aria-label="Open invoice">
-                  <ArrowRight size={18} />
-                </Link>
-              </td>
-            </tr>
-          ))}
+          {invoices.map((invoice) => {
+            const hasOriginalFile = !invoice.filePath.startsWith("seed/");
+
+            return (
+              <tr key={invoice.id}>
+                <td>
+                  <strong>{invoice.vendorNameRaw}</strong>
+                  <span>{invoice.department?.name ?? "No department"}</span>
+                </td>
+                <td>
+                  <strong>{invoice.invoiceNumber ?? "No number"}</strong>
+                  {invoice.duplicateOfInvoice ? (
+                    <span>Duplicate of {invoice.duplicateOfInvoice.invoiceNumber}</span>
+                  ) : null}
+                </td>
+                <td>
+                  <StatusBadge status={invoice.status} />
+                </td>
+                <td>{formatMoney(invoice.totalAmount, invoice.currency)}</td>
+                <td>{formatDate(invoice.dueDate)}</td>
+                <td>{invoice.assignedApprover?.name ?? "Unassigned"}</td>
+                <td>
+                  {hasOriginalFile ? (
+                    <Link
+                      className="icon-link"
+                      href={`/api/invoices/${invoice.id}/file?download=1`}
+                      aria-label={`Download original invoice file ${invoice.fileName}`}
+                      title="Download original"
+                    >
+                      <Download size={18} />
+                    </Link>
+                  ) : (
+                    <span className="icon-link disabled" aria-label="Original file unavailable" title="Original file unavailable">
+                      <Download size={18} />
+                    </span>
+                  )}
+                </td>
+                <td>
+                  <Link className="icon-link" href={`/invoices/${invoice.id}`} aria-label="Open invoice">
+                    <ArrowRight size={18} />
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

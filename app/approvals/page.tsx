@@ -20,7 +20,9 @@ export default async function ApprovalsPage() {
       </header>
 
       {queue.length === 0 ? (
-        <p className="empty-state">No invoices are waiting on this persona.</p>
+        <section className="panel">
+          <p className="empty-state">No invoices are waiting on this persona.</p>
+        </section>
       ) : (
         <section className="decision-grid">
           {queue.map((invoice) => (

@@ -1,4 +1,5 @@
 import { Download } from "lucide-react";
+import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
 import { getActiveUser, getExportData } from "@/lib/data";
@@ -86,6 +87,12 @@ export default async function ExportsPage() {
                     {batch.invoiceCount} invoices - {formatMoney(batch.totalAmount)} -{" "}
                     {formatDate(batch.createdAt)}
                   </span>
+                  <div className="action-row compact">
+                    <Link className="button secondary" href={`/api/exports/${batch.id}`}>
+                      <Download size={16} />
+                      Download CSV
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>

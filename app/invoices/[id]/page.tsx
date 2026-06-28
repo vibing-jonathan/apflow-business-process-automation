@@ -46,6 +46,17 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </div>
         <div className="action-row" style={{ marginTop: 0 }}>
           <StatusBadge status={invoice.status} />
+          {isFileAvailable ? (
+            <Link className="button secondary" href={`/api/invoices/${invoice.id}/file?download=1`}>
+              <Download size={16} />
+              Download original
+            </Link>
+          ) : (
+            <span className="button secondary disabled" aria-disabled="true">
+              <Download size={16} />
+              Original unavailable
+            </span>
+          )}
           <Link className="button secondary" href="/invoices">
             Back
           </Link>
@@ -250,7 +261,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                   Download original
                 </Link>
               </div>
-            ) : null}
+            ) : (
+              <span className="button secondary disabled" aria-disabled="true">
+                <Download size={16} />
+                Original unavailable
+              </span>
+            )}
           </section>
 
           <section className="panel">
